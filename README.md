@@ -18,6 +18,12 @@
 
 ---
 
+<p align="center">
+  <img src="assets/preview.svg" alt="Orbs Farmer v4.3 UI with Settings" width="380"/>
+</p>
+
+---
+
 ## ✨ Что нового в v4.3
 
 - ⚙ **Полноценная панель настроек** прямо в UI
@@ -33,7 +39,7 @@
 
 1. Discord Desktop / Vesktop / Equicord
 2. `Ctrl+Shift+I` → Console → `allow pasting`
-3. Вставь код из файла `discord-orbs-farm-stealth.js`
+3. Вставь код из файла [`discord-orbs-farm-stealth.js`](./discord-orbs-farm-stealth.js)
 4. Открой **⚙ Настройки** и выбери режим
 5. **СТАРТ** → **✕** чтобы закрыть
 
