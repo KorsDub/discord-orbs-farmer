@@ -1,9 +1,9 @@
 /*
  * ==UserScript==
- * @name         Discord Orbs Farmer v8.2
+ * @name         Discord Orbs Farmer v8.3
  * @namespace    https://github.com/KorsDubStudio/discord-orbs-farmer
- * @version      8.2
- * @description  Исправлено определение квестов. Теперь видит твои активные квесты в разделе «Начатые».
+ * @version      8.3
+ * @description  Добавлено подробное логирование для диагностики. Теперь видно, почему квесты не находятся.
  * @author       KDStudio
  * @match        https://discord.com/*
  * @grant        none
@@ -12,8 +12,8 @@
  */
 
 /**
- * Discord Orbs Farmer v8.2
- * ПРОСТОЕ МЕНЮ + исправленное определение квестов
+ * Discord Orbs Farmer v8.3
+ * ПРОСТОЕ МЕНЮ + подробная диагностика квестов
  */
 
 (async () => {
@@ -77,7 +77,7 @@
 
     const print = (text, type = "info") => {
         const color = { info: "#0A84FF", success: "#30D158", warn: "#FF9F0A", error: "#FF453A" }[type] || "#0A84FF";
-        console.log(`%c[DisOrbsFarm v8.2] ${text}`, `color:${color}; font-weight:600`);
+        console.log(`%c[DisOrbsFarm v8.3] ${text}`, `color:${color}; font-weight:600`);
     };
 
     // ================== DISCORD MODULES ==================
@@ -85,7 +85,7 @@
     try {
         wp = webpackChunkdiscord_app.push([[Symbol()], {}, r => r]);
         webpackChunkdiscord_app.pop();
-    } catch { print("Не удалось загрузить Discord. Открой discord.com/app", "error"); return; }
+    } catch { print("Не удалось загрузить Discord", "error"); return; }
 
     const getMod = fn => {
         for (const m of Object.values(wp.c)) {
@@ -96,10 +96,27 @@
         return null;
     };
 
-    const Quests = getMod(m => m.getQuest && m.quests) || Object.values(wp.c).find(x => x?.exports?.A?.__proto__?.getQuest)?.exports?.A;
+    let Quests = getMod(m => m.getQuest && m.quests) || 
+                 Object.values(wp.c).find(x => x?.exports?.A?.__proto__?.getQuest)?.exports?.A;
+
+    // Дополнительный поиск модуля квестов (на случай изменений Discord)
+    if (!Quests) {
+        for (const m of Object.values(wp.c)) {
+            const e = m?.exports;
+            if (e && (e.quests || e.getQuest || (e.A && e.A.quests))) {
+                Quests = e.A || e;
+                break;
+            }
+        }
+    }
+
     const API = getMod(m => m.post && m.get) || Object.values(wp.c).find(x => x?.exports?.Bo?.get)?.exports?.Bo;
 
-    if (!Quests || !API) { print("Модули Discord не загружены", "error"); return; }
+    if (!Quests) { 
+        print("Модуль Quests не найден. Открой раздел 'Задания' в Discord и попробуй снова.", "error"); 
+        return; 
+    }
+    if (!API) { print("API модуль не найден", "error"); return; }
 
     // ================== STATE ==================
     let list = [];
@@ -110,15 +127,26 @@
         list = [];
         let raw = [];
         try { 
-            raw = Quests.quests instanceof Map ? [...Quests.quests.values()] : Object.values(Quests.quests || {}); 
+            if (Quests.quests instanceof Map) {
+                raw = [...Quests.quests.values()];
+            } else if (Quests.quests) {
+                raw = Object.values(Quests.quests);
+            } else if (Array.isArray(Quests)) {
+                raw = Quests;
+            }
         } catch {}
+
+        console.log("%c[DisOrbsFarm] Raw quests from Discord:", "color:#FF9F0A", raw.length);
+
+        if (raw.length > 0) {
+            console.log("%c[DisOrbsFarm] Пример первого квеста:", "color:#FF9F0A", raw[0]);
+        }
 
         raw.forEach(q => {
             try {
                 const userStatus = q.userStatus || {};
-                if (userStatus.completedAt) return; // пропускаем полностью завершённые
+                if (userStatus.completedAt) return;
 
-                // Ищем конфиг задач в разных возможных местах (Discord иногда меняет структуру)
                 let tasks = null;
                 const cfg = q.config || {};
                 if (cfg.taskConfig?.tasks) tasks = cfg.taskConfig.tasks;
@@ -127,43 +155,37 @@
 
                 if (!tasks || typeof tasks !== 'object') return;
 
-                // Берём все задачи с целью (target)
                 const taskKeys = Object.keys(tasks).filter(k => tasks[k] && tasks[k].target > 0);
                 if (taskKeys.length === 0) return;
 
-                // Предпочитаем видео/просмотр, потом любое
                 let typeKey = taskKeys.find(t => 
                     t.toUpperCase().includes("VIDEO") || 
                     t.toUpperCase().includes("WATCH") || 
                     t === "PLAY_ON_DESKTOP"
                 );
-                if (!typeKey) typeKey = taskKeys[0]; // берём первую доступную
+                if (!typeKey) typeKey = taskKeys[0];
 
                 const task = tasks[typeKey];
 
                 list.push({
                     id: q.id,
-                    name: q.config?.messages?.questName || 
-                          q.config?.application?.name || 
-                          q.config?.name || 
-                          "Quest",
+                    name: q.config?.messages?.questName || q.config?.application?.name || q.config?.name || "Quest",
                     needed: task.target || 0,
-                    done: (userStatus.progress && userStatus.progress[typeKey] && userStatus.progress[typeKey].value) || 0,
+                    done: (userStatus.progress && userStatus.progress[typeKey]?.value) || 0,
                     video: typeKey.toUpperCase().includes("VIDEO") || typeKey.toUpperCase().includes("WATCH"),
                     game: typeKey === "PLAY_ON_DESKTOP",
                     enrolled: !!userStatus.enrolledAt
                 });
-            } catch (e) {
-                // тихо пропускаем проблемные квесты
-            }
+            } catch {}
         });
 
-        // Сортируем: сначала видео, потом с прогрессом, потом остальные
         list.sort((a, b) => {
             if (a.video !== b.video) return b.video ? 1 : -1;
             if (b.enrolled !== a.enrolled) return b.enrolled ? 1 : -1;
             return (b.done / b.needed) - (a.done / a.needed);
         });
+
+        console.log("%c[DisOrbsFarm] После фильтрации квестов:", "color:#30D158", list.length);
     }
 
     // ================== ACTIONS ==================
@@ -229,7 +251,7 @@
                         <div style="width:28px;height:28px;background:linear-gradient(135deg,#5E5CE6,#0A84FF);border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:15px;box-shadow:0 2px 8px rgba(94,92,230,0.4);">👓</div>
                         <div>
                             <div style="font-weight:800;font-size:17px;letter-spacing:-0.3px;">DisOrbsFarm</div>
-                            <div style="font-size:9.5px;color:#8E8E93;margin-top:-1px;">v8.2 • Простое меню</div>
+                            <div style="font-size:9.5px;color:#8E8E93;margin-top:-1px;">v8.3 • Диагностика</div>
                         </div>
                     </div>
                     <button id="df-close" style="width:26px;height:26px;background:rgba(255,69,58,0.12);color:#FF453A;border:none;border-radius:50%;font-size:14px;font-weight:700;cursor:pointer;">✕</button>
@@ -251,7 +273,7 @@
 
                 <!-- Quick toolbar -->
                 <div style="display:flex; gap:6px; align-items:center;">
-                    <button id="df-refresh" style="flex:1; padding:8px 0; background:rgba(255,255,255,0.06); border:1px solid rgba(255,255,255,0.1); border-radius:9px; color:#F5F5F7; font-size:12px; font-weight:600; cursor:pointer;">🔄 Обновить</button>
+                    <button id="df-refresh" style="flex:1; padding:8px 0; background:rgba(255,255,255,0.06); border:1px solid rgba(255,255,255,0.1); border-radius:9px; color:#F5F5F7; font-size:12px; font-weight:600; cursor:pointer;">🔄 Обновить + Диагностика</button>
                     <button id="df-settings" style="flex:1; padding:8px 0; background:rgba(255,255,255,0.06); border:1px solid rgba(255,255,255,0.1); border-radius:9px; color:#F5F5F7; font-size:12px; font-weight:600; cursor:pointer;">⚙ Настройки</button>
                     <button id="df-mini" style="padding:8px 10px; background:rgba(255,255,255,0.06); border:1px solid rgba(255,255,255,0.1); border-radius:9px; color:#F5F5F7; font-size:13px; cursor:pointer;">−</button>
                 </div>
@@ -309,10 +331,11 @@
 
         refreshBtn.onclick = () => {
             loadQuests();
-            statusEl.textContent = list.length > 0 
-                ? `Обновлено • ${list.length} квестов` 
-                : "Квесты не найдены (попробуй обновить страницу Discord)";
-            print(`Квесты обновлены: ${list.length}`, "info");
+            const msg = list.length > 0 
+                ? `Найдено ${list.length} квестов` 
+                : "Квестов не найдено (смотри консоль F12 — там подробности)";
+            statusEl.textContent = msg;
+            print(`Raw: ${list.length} (смотри консоль для деталей)`, list.length > 0 ? "success" : "warn");
         };
 
         let settingsOpen = false;
@@ -347,7 +370,7 @@
         loadQuests();
         statusEl.textContent = list.length > 0 
             ? `Готов • ${list.length} квестов` 
-            : "Нет квестов (обнови страницу Discord)";
+            : "Нет квестов (нажми 'Обновить + Диагностика' и смотри консоль F12)";
     }
 
     function updateMainProgress(pct) {
@@ -394,7 +417,7 @@
         loadQuests();
 
         if (!list.length) {
-            statusEl.textContent = "Нет квестов. Попробуй обновить Discord (F5) или проверь раздел 'Начатые'";
+            statusEl.textContent = "Нет квестов. Нажми 'Обновить + Диагностика' и смотри консоль (F12)";
             startBtn.style.display = "block";
             stopBtn.style.display = "none";
             running = false;
@@ -433,14 +456,14 @@
         statusEl.textContent = stopped ? "Остановлено" : "Готово!";
         progressBar.style.width = "100%";
 
-        notify("DisOrbsFarm v8.2", `Фарм завершён (${toRun.length} квестов)`);
+        notify("DisOrbsFarm v8.3", `Фарм завершён (${toRun.length} квестов)`);
         print("Фарм завершён", "success");
     }
 
     // ================== START ==================
     buildSimpleMenu();
-    print("DisOrbsFarm v8.2 — исправлено определение квестов", "success");
-    notify("DisOrbsFarm", "v8.2 загружен");
+    print("DisOrbsFarm v8.3 — диагностика включена. Нажми 'Обновить + Диагностика'", "success");
+    notify("DisOrbsFarm", "v8.3 загружен");
 
     window.closeOrbsFarmer = () => { if (ui) ui.remove(); if (mini) mini.remove(); };
 })();
