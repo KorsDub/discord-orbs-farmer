@@ -1,9 +1,9 @@
 /*
  * ==UserScript==
- * @name         Discord Orbs Farmer v8.1
+ * @name         Discord Orbs Farmer v8.2
  * @namespace    https://github.com/KorsDubStudio/discord-orbs-farmer
- * @version      8.1
- * @description  Простое меню. Одно нажатие — и фарм орбов пошёл. Полная перезапись с нуля.
+ * @version      8.2
+ * @description  Исправлено определение квестов. Теперь видит твои активные квесты в разделе «Начатые».
  * @author       KDStudio
  * @match        https://discord.com/*
  * @grant        none
@@ -12,9 +12,8 @@
  */
 
 /**
- * Discord Orbs Farmer v8.1
- * ПРОСТОЕ МЕНЮ — теперь ещё проще пользоваться!
- * Большая кнопка СТАРТ и минимум лишнего.
+ * Discord Orbs Farmer v8.2
+ * ПРОСТОЕ МЕНЮ + исправленное определение квестов
  */
 
 (async () => {
@@ -78,7 +77,7 @@
 
     const print = (text, type = "info") => {
         const color = { info: "#0A84FF", success: "#30D158", warn: "#FF9F0A", error: "#FF453A" }[type] || "#0A84FF";
-        console.log(`%c[DisOrbsFarm v8.1] ${text}`, `color:${color}; font-weight:600`);
+        console.log(`%c[DisOrbsFarm v8.2] ${text}`, `color:${color}; font-weight:600`);
     };
 
     // ================== DISCORD MODULES ==================
@@ -110,28 +109,61 @@
     function loadQuests() {
         list = [];
         let raw = [];
-        try { raw = Quests.quests instanceof Map ? [...Quests.quests.values()] : Object.values(Quests.quests || {}); } catch {}
+        try { 
+            raw = Quests.quests instanceof Map ? [...Quests.quests.values()] : Object.values(Quests.quests || {}); 
+        } catch {}
 
         raw.forEach(q => {
             try {
-                if (q.userStatus?.completedAt) return;
-                const cfg = q.config?.taskConfig ?? q.config?.taskConfigV2;
-                if (!cfg?.tasks) return;
-                const typeKey = Object.keys(cfg.tasks).find(t => t.includes("VIDEO") || t === "PLAY_ON_DESKTOP");
-                if (!typeKey) return;
+                const userStatus = q.userStatus || {};
+                if (userStatus.completedAt) return; // пропускаем полностью завершённые
+
+                // Ищем конфиг задач в разных возможных местах (Discord иногда меняет структуру)
+                let tasks = null;
+                const cfg = q.config || {};
+                if (cfg.taskConfig?.tasks) tasks = cfg.taskConfig.tasks;
+                else if (cfg.taskConfigV2?.tasks) tasks = cfg.taskConfigV2.tasks;
+                else if (cfg.tasks) tasks = cfg.tasks;
+
+                if (!tasks || typeof tasks !== 'object') return;
+
+                // Берём все задачи с целью (target)
+                const taskKeys = Object.keys(tasks).filter(k => tasks[k] && tasks[k].target > 0);
+                if (taskKeys.length === 0) return;
+
+                // Предпочитаем видео/просмотр, потом любое
+                let typeKey = taskKeys.find(t => 
+                    t.toUpperCase().includes("VIDEO") || 
+                    t.toUpperCase().includes("WATCH") || 
+                    t === "PLAY_ON_DESKTOP"
+                );
+                if (!typeKey) typeKey = taskKeys[0]; // берём первую доступную
+
+                const task = tasks[typeKey];
 
                 list.push({
                     id: q.id,
-                    name: q.config?.messages?.questName || q.config?.application?.name || "Quest",
-                    needed: cfg.tasks[typeKey].target || 0,
-                    done: q.userStatus?.progress?.[typeKey]?.value || 0,
-                    video: typeKey.includes("VIDEO"),
+                    name: q.config?.messages?.questName || 
+                          q.config?.application?.name || 
+                          q.config?.name || 
+                          "Quest",
+                    needed: task.target || 0,
+                    done: (userStatus.progress && userStatus.progress[typeKey] && userStatus.progress[typeKey].value) || 0,
+                    video: typeKey.toUpperCase().includes("VIDEO") || typeKey.toUpperCase().includes("WATCH"),
                     game: typeKey === "PLAY_ON_DESKTOP",
-                    enrolled: !!q.userStatus?.enrolledAt
+                    enrolled: !!userStatus.enrolledAt
                 });
-            } catch {}
+            } catch (e) {
+                // тихо пропускаем проблемные квесты
+            }
         });
-        list.sort((a, b) => (b.enrolled - a.enrolled) || (b.video - a.video) || (b.done - a.done));
+
+        // Сортируем: сначала видео, потом с прогрессом, потом остальные
+        list.sort((a, b) => {
+            if (a.video !== b.video) return b.video ? 1 : -1;
+            if (b.enrolled !== a.enrolled) return b.enrolled ? 1 : -1;
+            return (b.done / b.needed) - (a.done / a.needed);
+        });
     }
 
     // ================== ACTIONS ==================
@@ -197,7 +229,7 @@
                         <div style="width:28px;height:28px;background:linear-gradient(135deg,#5E5CE6,#0A84FF);border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:15px;box-shadow:0 2px 8px rgba(94,92,230,0.4);">👓</div>
                         <div>
                             <div style="font-weight:800;font-size:17px;letter-spacing:-0.3px;">DisOrbsFarm</div>
-                            <div style="font-size:9.5px;color:#8E8E93;margin-top:-1px;">v8.1 • Простое меню</div>
+                            <div style="font-size:9.5px;color:#8E8E93;margin-top:-1px;">v8.2 • Простое меню</div>
                         </div>
                     </div>
                     <button id="df-close" style="width:26px;height:26px;background:rgba(255,69,58,0.12);color:#FF453A;border:none;border-radius:50%;font-size:14px;font-weight:700;cursor:pointer;">✕</button>
@@ -224,7 +256,7 @@
                     <button id="df-mini" style="padding:8px 10px; background:rgba(255,255,255,0.06); border:1px solid rgba(255,255,255,0.1); border-radius:9px; color:#F5F5F7; font-size:13px; cursor:pointer;">−</button>
                 </div>
 
-                <!-- Settings panel (hidden by default) -->
+                <!-- Settings panel -->
                 <div id="df-settings-panel" style="display:none; margin-top:12px; padding:12px; background:rgba(15,15,17,0.98); border-radius:11px; border:1px solid rgba(255,255,255,0.06); font-size:13px;">
                     <div style="margin-bottom:8px;">
                         <div style="color:#8E8E93; font-size:11px; margin-bottom:3px;">Уровень</div>
@@ -272,35 +304,29 @@
         const speedSlider = ui.querySelector("#df-speed");
         const speedVal = ui.querySelector("#df-spval");
 
-        // Main actions
         startBtn.onclick = startFarming;
         stopBtn.onclick = () => { stopped = true; running = false; statusEl.textContent = "Остановлено"; stopBtn.style.display = "none"; startBtn.style.display = "block"; };
 
-        // Refresh
         refreshBtn.onclick = () => {
             loadQuests();
-            statusEl.textContent = `Обновлено • ${list.length} квестов`;
-            print("Квесты обновлены", "info");
+            statusEl.textContent = list.length > 0 
+                ? `Обновлено • ${list.length} квестов` 
+                : "Квесты не найдены (попробуй обновить страницу Discord)";
+            print(`Квесты обновлены: ${list.length}`, "info");
         };
 
-        // Settings toggle
         let settingsOpen = false;
         settingsBtn.onclick = () => {
             settingsOpen = !settingsOpen;
             settingsPanel.style.display = settingsOpen ? "block" : "none";
         };
 
-        // Mini mode
         miniBtn.onclick = minimizeToMini;
-
-        // Close
         closeBtn.onclick = () => { ui.remove(); if (mini) mini.remove(); };
 
-        // Level
         levelSel.value = CONFIG.level;
-        levelSel.onchange = e => { setLevel(parseInt(e.target.value)); statusEl.textContent = `Уровень: ${CONFIG.level}`; };
+        levelSel.onchange = e => { setLevel(parseInt(e.target.value)); };
 
-        // Checkboxes
         ui.querySelector("#df-enroll").checked = CONFIG.autoEnroll;
         ui.querySelector("#df-enroll").onchange = e => { CONFIG.autoEnroll = e.target.checked; saveConfig(); };
         ui.querySelector("#df-claim").checked = CONFIG.autoClaim;
@@ -310,7 +336,6 @@
         ui.querySelector("#df-notify").checked = CONFIG.notifications;
         ui.querySelector("#df-notify").onchange = e => { CONFIG.notifications = e.target.checked; saveConfig(); };
 
-        // Speed
         speedSlider.value = CONFIG.videoSpeed;
         speedVal.textContent = CONFIG.videoSpeed.toFixed(1);
         speedSlider.oninput = () => {
@@ -319,9 +344,10 @@
             saveConfig();
         };
 
-        // Initial status
         loadQuests();
-        statusEl.textContent = `Готов • ${list.length} квестов`;
+        statusEl.textContent = list.length > 0 
+            ? `Готов • ${list.length} квестов` 
+            : "Нет квестов (обнови страницу Discord)";
     }
 
     function updateMainProgress(pct) {
@@ -366,22 +392,21 @@
         progressBar.style.width = "0%";
 
         loadQuests();
+
         if (!list.length) {
-            statusEl.textContent = "Нет квестов";
+            statusEl.textContent = "Нет квестов. Попробуй обновить Discord (F5) или проверь раздел 'Начатые'";
             startBtn.style.display = "block";
             stopBtn.style.display = "none";
             running = false;
             return;
         }
 
-        // Автоматически берём до 6 лучших квестов (видео в приоритете)
         const toRun = list.slice(0, 6);
-
         statusEl.textContent = `Фарм ${toRun.length} квестов...`;
 
         for (let i = 0; i < toRun.length && !stopped; i++) {
             const q = toRun[i];
-            statusEl.textContent = `${i+1}/${toRun.length}: ${q.name.slice(0,28)}`;
+            statusEl.textContent = `${i+1}/${toRun.length}: ${q.name.slice(0, 30)}`;
 
             const ok = await enrollQuest(q);
             if (!ok && !q.enrolled) continue;
@@ -408,14 +433,14 @@
         statusEl.textContent = stopped ? "Остановлено" : "Готово!";
         progressBar.style.width = "100%";
 
-        notify("DisOrbsFarm v8.1", `Фарм завершён (${toRun.length} квестов)`);
+        notify("DisOrbsFarm v8.2", `Фарм завершён (${toRun.length} квестов)`);
         print("Фарм завершён", "success");
     }
 
     // ================== START ==================
     buildSimpleMenu();
-    print("DisOrbsFarm v8.1 с простым меню готов!", "success");
-    notify("DisOrbsFarm", "Простое меню загружено");
+    print("DisOrbsFarm v8.2 — исправлено определение квестов", "success");
+    notify("DisOrbsFarm", "v8.2 загружен");
 
     window.closeOrbsFarmer = () => { if (ui) ui.remove(); if (mini) mini.remove(); };
 })();
