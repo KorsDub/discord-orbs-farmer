@@ -1,32 +1,34 @@
-# 🔥 Discord Orbs Farmer v4.0 STEALTH
+# 🔥 Discord Orbs Farmer v4.1 STEALTH
 
-**Самый безопасный скрипт для автоматического фарма Discord Orbs / Quests**  
-Авто-принятие квестов + JIT-enroll + медленный «человечный» прогресс + UI-панель.
+**ТОЛЬКО В ОБРАЗОВАТЕЛЬНЫХ ЦЕЛЯХ / FOR EDUCATIONAL PURPOSES ONLY**
+
+Этот скрипт создан **исключительно** для изучения внутреннего API Discord, механики квестов и клиентской автоматизации.  
+Использование автоматизации квестов **нарушает Terms of Service Discord**.  
+Discord с апреля 2026 активно детектит и банит такие действия.  
+**Автор, репозиторий и все связанные лица НЕ несут никакой ответственности** за баны, потери аккаунтов, captcha или любые другие последствия.  
+Используй **только на свой страх и риск**, желательно на тестовом/альтернативном аккаунте.
+
+---
 
 <p align="center">
   <img src="assets/preview.svg" alt="Orbs Farmer STEALTH UI Preview" width="380"/>
 </p>
 
-> ⚠️ **Discord активно банит за автоматизацию квестов (с апреля 2026).**  
-> Даже в stealth-режиме **риск бана остаётся**. Используй на свой страх и риск.  
-> Рекомендуется **альтернативный аккаунт**.
+> ⚠️ **Educational use only. Risk of permanent Discord ban. You have been warned.**
 
 ---
 
-## ✨ Возможности
+## ✨ Возможности v4.1
 
 - ✅ **Авто-принятие квестов** (JIT — принимает только перед выполнением)
-- ✅ Поддержка всех типов:
-  - 🎬 `WATCH_VIDEO` / `WATCH_VIDEO_ON_MOBILE`
-  - 🎮 `PLAY_ON_DESKTOP`
-  - 📡 `STREAM_ON_DESKTOP`
-  - 🎯 `PLAY_ACTIVITY`
-- ✅ **Stealth-режим** 3 уровней (1 — быстрее, 3 — максимально осторожно)
-- ✅ Плавающая UI-панель (прогресс, список, Старт/Стоп)
+- ✅ **Кнопка СТОП** — останавливает текущий фарм
+- ✅ **Кнопка ✕ (Закрыть)** — полностью останавливает скрипт, убирает панель и чистит все spoof'ы
+- ✅ Поддержка всех типов квестов (Video / Play / Stream / Activity)
+- ✅ **Stealth-режим** 3 уровней
+- ✅ Плавающая UI-панель (прогресс, список, Старт/Стоп/Закрыть)
 - ✅ Ограничение количества квестов за сессию
-- ✅ Большие случайные паузы между квестами
-- ✅ Медленный видео-прогресс с `maxFuture`
-- ✅ Авто-claim выключен по умолчанию (чтобы не ловить captcha)
+- ✅ Большие случайные паузы + медленный «человечный» прогресс
+- ✅ Авто-claim выключен по умолчанию
 - ✅ Работает в Discord Desktop / Vesktop / Equicord / Vencord
 
 ---
@@ -34,82 +36,43 @@
 ## 🚀 Как использовать
 
 1. Открой **Discord Desktop** (или Vesktop / Equicord)
-2. Перейди в **Quests** (можно ничего не принимать — скрипт сам примет)
-3. `Ctrl + Shift + I` → вкладка **Console**
-4. Напиши `allow pasting` → Enter
-5. Скопируй содержимое файла [`discord-orbs-farm-stealth.js`](./discord-orbs-farm-stealth.js)
-6. Вставь в консоль → Enter
-7. Справа появится панель → нажми **СТАРТ**
+2. Перейди в **Quests**
+3. `Ctrl + Shift + I` → **Console**
+4. `allow pasting` → Enter
+5. Скопируй **полный** код из [`discord-orbs-farm-stealth.js`](./discord-orbs-farm-stealth.js) (raw)
+6. Вставь → Enter
+7. Появится панель → **СТАРТ**
+8. **✕** — полностью закрыть и очистить
+
+Также можно закрыть из консоли: `window.closeOrbsFarmer()`
 
 ---
 
-## ⚙️ Настройки (в начале скрипта)
+## ⚙️ Основные настройки
 
 ```js
-const CONFIG = {
-    LANG: "ru",                    // "ru" | "en"
-
-    STEALTH_LEVEL: 2,              // 1 = быстрее, 2 = баланс, 3 = очень осторожно
-    MAX_QUESTS_PER_SESSION: 4,     // сколько квестов максимум за один запуск
-    AUTO_ENROLL: true,             // автоматически принимать квесты
-    AUTO_CLAIM: false,             // claim (лучше вручную — меньше captcha)
-    PRIORITIZE_VIDEO: true,        // сначала делать видео-квесты
-
-    // Видео
-    VIDEO_BASE_SPEED: 4,
-    VIDEO_MAX_FUTURE: 6,
-    VIDEO_MIN_DELAY: 1400,
-
-    // Паузы между квестами (секунды)
-    PAUSE_BETWEEN_QUESTS: [45, 120],
-
-    SHOW_UI: true,
-    DEBUG: true
-};
+STEALTH_LEVEL: 2,              // 1 = быстрее, 2 = баланс, 3 = очень осторожно
+MAX_QUESTS_PER_SESSION: 4,
+AUTO_ENROLL: true,
+AUTO_CLAIM: false,             // лучше вручную
 ```
 
-### Рекомендуемые настройки против бана
-
-| Цель                    | STEALTH_LEVEL | MAX_QUESTS | Паузы     |
-|-------------------------|---------------|------------|-----------|
-| Максимальная безопасность | 3             | 2          | 90–240 с  |
-| Баланс (по умолчанию)   | 2             | 4          | 45–120 с  |
-| Быстрее (рискованно)    | 1             | 6          | 15–40 с   |
-
 ---
 
-## 📌 Важные замечания
+## ⚠️ Disclaimer (ещё раз)
 
-- **Игровые и стрим-квесты** работают **только в Discord Desktop** (не в браузере).
-- Для `STREAM_ON_DESKTOP` нужен **хотя бы 1 человек** в голосовом канале.
-- Claim лучше делать **вручную** после того, как квест стал зелёным.
-- Не гоняй много квестов подряд — делай перерывы.
-- Скрипт **не** обходит captcha и **не** гарантирует отсутствие бана.
-
----
-
-## 🛠 Поддержка клиентов
-
-- Discord Stable / PTB / Canary
-- Vesktop
-- Equicord / Vencord
-- Legcord
-
----
-
-## ⚠️ Disclaimer
-
-Этот скрипт создан исключительно в образовательных целях.  
-Использование автоматизации квестов нарушает Terms of Service Discord.  
-Автор не несёт ответственности за любые последствия (баны, потери аккаунта и т.д.).
+**FOR EDUCATIONAL PURPOSES ONLY.**  
+This project is intended solely for learning how Discord quests and client-side modules work.  
+Automating quests is against Discord's Terms of Service.  
+The author and this repository take **no responsibility** for any bans, account losses, or other consequences.  
+Use at your own risk.
 
 ---
 
 ## 📜 Лицензия
 
-MIT — делай что хочешь, но на свой страх и риск.
+MIT — do whatever you want, but at your own risk and only for educational purposes.
 
 ---
 
-**Сделано для сообщества**  
-Если помогло — поставь ⭐ звезду репозиторию.
+**Сделано для сообщества** · Если помогло — поставь ⭐
