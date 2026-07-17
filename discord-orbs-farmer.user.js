@@ -1,7 +1,7 @@
-// This repository now focuses on the external process-spoofing method
-// (see kdstudio_orbs.py and README.md).
+// Этот репозиторий теперь сосредоточен на методе внешней подмены процессов
+// (см. kdstudio_orbs.py и README.md).
 //
-// The old console userscript approach is no longer maintained here
-// because Discord frequently breaks webpack module finding.
+// Старый подход с userscript больше не поддерживается,
+// потому что Discord часто ломает поиск webpack-модулей.
 //
-// Educational use only. © KDStudio 2026
+// Только в образовательных целях. © KDStudio 2026
